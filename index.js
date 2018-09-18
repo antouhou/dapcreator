@@ -17,7 +17,8 @@ console.log(green, 'Shema loaded.');
 
 var packet = DashSchema.create.stpacket();
 var dap = DashSchema.create.dapcontract(dashPaySchema);
-packet.dapcontract = dap;
+dap.pver = 1;
+packet.stpacket = dap;
 
 console.log(green, 'Raw packet:');
 console.log(packet);
