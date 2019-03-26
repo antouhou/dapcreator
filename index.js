@@ -1,41 +1,68 @@
 const args = require('yargs').argv;
-const DashSchema = require('@dashevo/dash-schema/dash-schema-lib');
+const DashPlatformProtocol = require('@dashevo/dpp');
+const DAPIClient = require('@dashevo/dapi-client');
+const {PublicKey, Address, Transaction, PrivateKey} = require('@dashevo/dashcore-lib');
+const entropy = require('@dashevo/dpp/lib/util/entropy');
+const registerUser = require('./registerUser');
+
 const green = '\x1b[32m%s\x1b[0m';
-const crypto = require('crypto');
-const hash = crypto.createHash('sha256');
-const hash2 = crypto.createHash('sha256');
-const hash3 = crypto.createHash('sha256');
-const hash4 = crypto.createHash('sha256');
 
-const { schema } = args;
+const {schema, seeds, private_key} = args;
 
-if (!schema) {
-    console.log('Schema is not specified. Example: node index.js --schema=/path/to/shema.json');
+const dpp = new DashPlatformProtocol();
+
+async function main() {
+
+  if (!schema) {
+    return console.log('Schema is not specified. Example: node index.js --schema=/path/to/shema.json');
+  }
+
+  if (!seeds) {
+    return console.log("Seeds aren't specified. Please specify seeds: --seeds='127.0.0.1,8.8.8.8'")
+  }
+
+  if (!private_key) {
+    return console.log('Please specify a private key to sign a transition: --private_key="place_your_key_here"');
+  }
+
+  const privateKey = new PrivateKey(private_key);
+  const applicationSchema = require(schema);
+
+  const dapiClient = new DAPIClient({
+    seeds: seeds.split(',').map(ip => {
+      return {service: ip};
+    }),
+  });
+
+  const regTxId = await registerUser(private_key, dapiClient);
+
+  const dpContract = dpp.contract.create(entropy.generate(), applicationSchema);
+
+  dpp.setContract(dpContract);
+
+  // 1. Create ST packet
+  const stPacket = dpp.packet.create(dpp.getContract());
+
+  // 2. Create State Transition
+  const transaction = new Transaction()
+    .setType(Transaction.TYPES.TRANSACTION_SUBTX_TRANSITION);
+
+  transaction.extraPayload
+    .setRegTxId(regTxId)
+    .setHashPrevSubTx(regTxId)
+    .setHashSTPacket(stPacket.hash())
+    .setCreditFee(1000)
+    .sign(privateKey);
+
+  const transitionHash = await dapiClient.sendRawTransition(
+    transaction.serialize(),
+    stPacket.serialize().toString('hex'),
+  );
+
+  await dapiClient.generate(1);
+
+  const contractId = dpp.getContract().getId();
+  console.log(green, `Your contract id is ${contractId}`);
 }
 
-console.log(`Loading schema from ${schema}...`);
-const dashPaySchema = require(schema);
-console.log(green, 'Shema loaded.');
-
-const packet = DashSchema.create.stpacket();
-const dap = DashSchema.create.dapcontract(dashPaySchema);
-const packetBuffer = DashSchema.serialize.encode(packet);
-const dapBuffer = DashSchema.serialize.encode(dap.dapcontract);
-
-const hash1 = hash.update(packetBuffer).digest();
-const packetHash = hash2.update(hash1).digest('hex');
-
-const dapId = crypto.createHash('sha256').update(crypto.createHash('sha256').update(dapBuffer).digest()).digest().toString('hex');
-
-dap.pver = 1;
-dap.dapid = dapId;
-packet.stpacket = dap;
-
-console.log(green, 'Raw packet:');
-console.log(packet);
-
-console.log(green, 'Packet hex:');
-console.log(packetBuffer.toString('hex'));
-
-console.log(green, 'Packet hash:');
-console.log(packetHash);
+main().catch(console.error);

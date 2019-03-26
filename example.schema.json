@@ -1,0 +1,33 @@
+{
+  "user": {
+    "properties": {
+      "avatarUrl": {
+        "type": "string",
+        "format": "url"
+      },
+      "about": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "avatarUrl",
+      "about"
+    ],
+    "additionalProperties": false
+  },
+  "contact": {
+    "properties": {
+      "toUserId": {
+        "type": "string"
+      },
+      "publicKey": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "toUserId",
+      "publicKey"
+    ],
+    "additionalProperties": false
+  }
+}
