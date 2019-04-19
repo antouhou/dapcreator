@@ -1,5 +1,8 @@
 {
-  "user": {
+  "profile": {
+    "indices": [
+      { "properties": [{ "$userId": "asc" }], "unique": true }
+    ],
     "properties": {
       "avatarUrl": {
         "type": "string",
@@ -9,25 +12,22 @@
         "type": "string"
       }
     },
-    "required": [
-      "avatarUrl",
-      "about"
-    ],
+    "required": ["avatarUrl", "about"],
     "additionalProperties": false
   },
   "contact": {
+    "indices": [
+      { "properties": [{ "$userId": "asc" }, { "toUserId": "asc" }], "unique": true }
+    ],
     "properties": {
       "toUserId": {
         "type": "string"
       },
-      "publicKey": {
+      "extendedPublicKey": {
         "type": "string"
       }
     },
-    "required": [
-      "toUserId",
-      "publicKey"
-    ],
+    "required": ["toUserId", "extendedPublicKey"],
     "additionalProperties": false
   }
 }

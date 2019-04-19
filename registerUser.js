@@ -10,17 +10,19 @@ async function registerUser(privateKeyString, dapiClient) {
     .setPubKeyIdFromPrivateKey(privateKey).sign(privateKey);
 
   const inputs = await dapiClient.getUTXO(address.toString());
+  if (!inputs.items) {
+    throw new Error(`Can't find any inputs for the address ${address.toString()}`);
+  }
 
   const transaction = Transaction()
     .setType(Transaction.TYPES.TRANSACTION_SUBTX_REGISTER)
     .setExtraPayload(validPayload)
-    .from(inputs.slice(-1)[0])
+    .from(inputs.items.slice(-1)[0])
     .addFundingOutput(10000)
     .change(address)
     .sign(privateKey);
 
-  const { txid } = await dapiClient.sendRawTransaction(transaction.serialize());
-  await dapiClient.generate(1);
+  const txid = await dapiClient.sendRawTransaction(transaction.serialize());
   console.log(`Username is ${randomUserName}`);
   console.log(`regTxId is ${txid}`);
   return txid;
