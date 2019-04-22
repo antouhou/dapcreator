@@ -1,5 +1,14 @@
 const { Transaction, PrivateKey } = require('@dashevo/dashcore-lib');
 
+async function getInputsWithRetries(dapiClient, address, retries) {
+  console.log(`Try ${retries}`);
+  const inputs = await dapiClient.getUTXO(address);
+  if (retries > 0 && !inputs.items) {
+    return getInputsWithRetries(dapiClient, address,retries - 1);
+  }
+  return inputs;
+}
+
 async function registerUser(privateKeyString, dapiClient) {
 
   const randomUserName = Math.random().toString(36).substring(7);
@@ -9,7 +18,7 @@ async function registerUser(privateKeyString, dapiClient) {
     .setUserName(randomUserName)
     .setPubKeyIdFromPrivateKey(privateKey).sign(privateKey);
 
-  const inputs = await dapiClient.getUTXO(address.toString());
+  const inputs = await getInputsWithRetries(dapiClient, address.toString(), 100);
   if (!inputs.items) {
     throw new Error(`Can't find any inputs for the address ${address.toString()}`);
   }
@@ -18,7 +27,7 @@ async function registerUser(privateKeyString, dapiClient) {
     .setType(Transaction.TYPES.TRANSACTION_SUBTX_REGISTER)
     .setExtraPayload(validPayload)
     .from(inputs.items.slice(-1)[0])
-    .addFundingOutput(10000)
+    .addFundingOutput(100000)
     .change(address)
     .sign(privateKey);
 

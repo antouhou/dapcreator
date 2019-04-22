@@ -2,9 +2,10 @@ const { Transaction } = require('@dashevo/dashcore-lib');
 /**
  * @param protocol
  * @param client
+ * @param {UserProvider} userProvider
  * @returns {function(string, string, string, string): Promise<string>}
  */
-function sendContactRequestFactory(protocol, client) {
+function sendContactRequestFactory(protocol, client, userProvider) {
   const dpp = protocol;
   const dapiClient = client;
   /**
@@ -17,7 +18,8 @@ function sendContactRequestFactory(protocol, client) {
    */
   async function sendContactRequest(from, to, extendedPublicKey, senderPrivateKey) {
     console.log('Downloading user data');
-    const user = await dapiClient.getUserById(from);
+
+    const transitions = await userProvider.getTransitions(from);
 
     dpp.setUserId(from);
 
@@ -39,17 +41,20 @@ function sendContactRequestFactory(protocol, client) {
       .setType(Transaction.TYPES.TRANSACTION_SUBTX_TRANSITION);
 
     transaction.extraPayload
-      .setRegTxId(user.regtxid)
-      .setHashPrevSubTx(user.subtx[0] || user.regtxid)
+      .setRegTxId(from)
+      .setHashPrevSubTx(transitions[transitions.length - 1] || from)
       .setHashSTPacket(stPacket.hash())
       .setCreditFee(1000)
       .sign(senderPrivateKey);
 
     console.log('Sending contact object to the network');
-    return dapiClient.sendRawTransition(
+    const tsId = dapiClient.sendRawTransition(
       transaction.serialize(),
       stPacket.serialize().toString('hex'),
     );
+
+    await userProvider.addTransition(from, tsId);
+    return tsId;
   }
   return sendContactRequest;
 }
